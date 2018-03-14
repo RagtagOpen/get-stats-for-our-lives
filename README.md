@@ -25,6 +25,15 @@ For full details, see `src/static/api.ts`
 
      returns at most `maxResults` `MarchForOurLivesEvent` objects ranked by distance (closest first)
 
+`/api/search`
+
+     requres either query (string)
+
+     optional parameter is `maxResults` (the max number of reuslts to return).
+
+     Searches on zip code if query is a numeric string of 5+ digits, otherwise
+     performs a text search on city, venue, state, and zip (for direct matches if < 5 digits)
+
 ## Installing dependencies
 If you haven't already, install node.js on your machine.
 
@@ -50,6 +59,7 @@ node ./dist/test/stats.js
 node ./dist/test/marches.js
 node ./dist/test/marches-by-lat-long.js
 node ./dist/test/marches-by-zip-code.js
+node ./dist/test/marches-by-query.js
 ```
 ## Run a server
 ```

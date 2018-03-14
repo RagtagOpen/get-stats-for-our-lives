@@ -1,1 +1,1 @@
-web: node dist/server/express/serve.js
+web: npm run serve

@@ -11,3 +11,8 @@ export type GetNearestMarchesRequestParams = {
   latitude: string,
   longitude: string,
 });
+
+export type SearchMarchesRequestParams = {
+  maxResults?: number,
+  query: string
+};

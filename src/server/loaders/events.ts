@@ -1,11 +1,12 @@
 import axios from "axios";
 import sphereKnn = require("sphere-knn");
 import tzLookup = require("tz-lookup");
-import {MarchForOurLivesEvent, GetNearestMarchesRequestParams} from "../../types";
+import {MarchForOurLivesEvent, GetNearestMarchesRequestParams, SearchMarchesRequestParams} from "../../types";
 import {zipCodeToLatLong} from "./zip-code-to-latitude-and-longitude";
 import {zipCodeToTimeZone} from "./zip-code-to-time-zone";
 import * as momenttz from "moment-timezone";
 import {cacheFactory} from "./cache-factory";
+import * as lunr from "lunr";
 
 const msBetweenReloads = parseInt(process.env["MFOL_EVENT_CACHE_RELOAD_FREQ_MS"] as string || "5000", 10);
 
@@ -124,9 +125,23 @@ export async function loadMarchesByScrapingEveryTown() {
         console.log("exception", e);
       }
     }
+    const eventsById = new Map<string, MarchForOurLivesEvent>(
+      events.map( event => [event.id.toString(), event] as [string, MarchForOurLivesEvent])
+    );
+    const index = lunr(function () {
+      this.field('city_etc_no_postal')
+      this.field('zip')
+      this.field('venue')
+      this.field('state')
+     
+      events.forEach( event => this.add(event));
+    });
+    const cachedGeographicEventLookup = sphereKnn(events);
     return {
-      events: events,
-      cachedGeographicEventLookup: sphereKnn(events),
+      index,
+      events,
+      eventsById,
+      cachedGeographicEventLookup,
     };
   } catch (e) {
     //
@@ -164,4 +179,21 @@ export async function getNearestMarches(
   }
   const {cachedGeographicEventLookup} = await cache();
   return cachedGeographicEventLookup(latitude, longitude, maxResults, maxDistanceInMeters);
+};
+
+
+export async function searchMarches(
+  params: SearchMarchesRequestParams) {
+  const {maxResults = 5, query} = params;
+  const trimQuery = query.trim().substr(0,5);
+  if (trimQuery.match(/\d{5}/) != null) {
+    return await getNearestMarches({zipCode: trimQuery, maxResults});
+  }
+  const {eventsById, index} = await cache();
+  const results = index.search(query)
+    .slice(0, maxResults)
+    .map( result => {
+      return {...result, ...eventsById.get(result.ref)}
+     } );
+  return results;
 };

@@ -34,8 +34,13 @@ var app = express();
 app.use(compression({}));
 
 app.get('/api/nearby', cors(), wrapGet<{maxResults?: number, maxDistanceInMeters?: number} & ({zipCode: string} | {latitude: number, longitude: number})>( 
-  async (_params, _req, _res) => 
-    await Loaders.Events.getNearestMarches(_params)
+  async (params, _req, _res) => 
+    await Loaders.Events.getNearestMarches(params)
+));
+
+app.get('/api/search', cors(), wrapGet<{query: string, maxResults?: number}>( 
+  async (params, _req, _res) => 
+    await Loaders.Events.searchMarches(params)
 ));
 
 app.get('/api/events', cors(), wrapGet<undefined>( 
