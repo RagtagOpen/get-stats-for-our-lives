@@ -66,6 +66,10 @@ app.get('/index.html', function(_req, res) {
   return res.sendFile('index.html', { root: path.join(__dirname, '../../../src/static') });
 });
 
+app.get("/loaderio-e9db7ea7d235a8217ee73b6e4f6e894c/", function(_req, res) {
+  res.send("loaderio-e9db7ea7d235a8217ee73b6e4f6e894c");
+})
+
 var port = process.env.PORT || 5000;
 
 app.listen(port, function() {
