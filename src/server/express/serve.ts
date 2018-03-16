@@ -48,6 +48,11 @@ app.get('/api/events', cors(), wrapGet<undefined>(
     await Loaders.Events.getMarchForOurLivesEvents()
 ));
 
+app.get('/api/detailed-events', cors(), wrapGet<undefined>( 
+  async (_params, _req, _res) => 
+    await Loaders.Events.getMarchForOurLivesEventsWithDetails()
+));
+
 app.get('/api/stats', cors(), wrapGet<undefined>( 
   async (_params, _req, _res) => 
     await Loaders.Stats.getStatsForOurLives()
