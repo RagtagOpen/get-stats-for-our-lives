@@ -15,5 +15,8 @@ async function runTest() {
 
   const columbusResult = await Events.searchMarches({query: "columbus"});
   process.stdout.write(`Query for 'columbus'\n` + JSON.stringify(columbusResult, undefined, 2));
+
+  const lyonResult = await Events.searchMarches({query: "lyon"});
+  process.stdout.write(`Query for 'lyon'\n` + JSON.stringify(lyonResult, undefined, 2));
 }
 runTest();

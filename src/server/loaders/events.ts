@@ -116,7 +116,8 @@ export async function loadMarchesByScrapingEveryTown() {
           .replace(/': '/g, `": "`)
           .replace(/\\n/g,``)
           .replace(`{'`, `{"`)
-          .replace(`'}`, `"}`);
+          .replace(`'}`, `"}`)
+          .replace(/(\\u0026quot[\;])/g, "\\\"");
         const rawEvent: RawDatabaseFormat = JSON.parse(entryString);
         const event = rawEventToEvent(rawEvent);
         events.push(event);
