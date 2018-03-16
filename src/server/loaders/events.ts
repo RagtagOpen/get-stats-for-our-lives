@@ -190,7 +190,7 @@ export async function searchMarches(
     return await getNearestMarches({zipCode: trimQuery, maxResults});
   }
   const {eventsById, index} = await cache();
-  const results = index.search(query)
+  const results = index.search(query + "*")
     .slice(0, maxResults)
     .map( result => {
       return {...result, ...eventsById.get(result.ref)}
