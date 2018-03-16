@@ -9,5 +9,8 @@ async function runTest() {
 
   const zipResult = await Events.searchMarches({query: "02138"});
   process.stdout.write(`Query for '02138'\n` + JSON.stringify(zipResult, undefined, 2));
+
+  const chattaResult = await Events.searchMarches({query: "chatta"});
+  process.stdout.write(`Query for 'chatta'\n` + JSON.stringify(chattaResult, undefined, 2));
 }
 runTest();
