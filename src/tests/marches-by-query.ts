@@ -12,5 +12,8 @@ async function runTest() {
 
   const chattaResult = await Events.searchMarches({query: "chatta"});
   process.stdout.write(`Query for 'chatta'\n` + JSON.stringify(chattaResult, undefined, 2));
+
+  const columbusResult = await Events.searchMarches({query: "columbus"});
+  process.stdout.write(`Query for 'columbus'\n` + JSON.stringify(columbusResult, undefined, 2));
 }
 runTest();

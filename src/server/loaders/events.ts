@@ -129,6 +129,8 @@ export async function loadMarchesByScrapingEveryTown() {
       events.map( event => [event.id.toString(), event] as [string, MarchForOurLivesEvent])
     );
     const index = lunr(function () {
+      this.pipeline.remove(lunr.stemmer)
+      this.searchPipeline.remove(lunr.stemmer)
       this.field('city_etc_no_postal')
       this.field('zip')
       this.field('venue')
