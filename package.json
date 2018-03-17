@@ -42,6 +42,7 @@
     "debug-events": "node --inspect=9229 --debug-brk dist/tests/marches.js",
     "debug-lat-long": "node --inspect=9229 --debug-brk dist/tests/marches-by-lat-long.js",
     "debug-zip": "node --inspect=9229 --debug-brk dist/tests/marches-by-zip-code.js",
-    "debug-search": "node --inspect=9229 --debug-brk dist/tests/marches-by-query.js"
+    "debug-search": "node --inspect=9229 --debug-brk dist/tests/marches-by-query.js",
+    "debug-details": "node --inspect=9229 --debug-brk dist/tests/details.js"
   }
 }

@@ -68,5 +68,18 @@
       "port": 9229,
       "cwd": "${workspaceRoot}"
     },
+    {
+      "type": "node",
+      "protocol": "inspector",
+      "request": "launch",
+      "name": "Debug fetching details",
+      "runtimeExecutable": "npm",
+      "windows": {
+        "runtimeExecutable": "npm.cmd"
+      },
+      "runtimeArgs": ["run", "debug-details"],
+      "port": 9229,
+      "cwd": "${workspaceRoot}"
+    },
   ]
 }

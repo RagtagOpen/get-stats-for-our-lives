@@ -8,6 +8,7 @@ import * as momenttz from "moment-timezone";
 import {cacheFactory} from "./cache-factory";
 import * as lunr from "lunr";
 import { scrapeValue } from "./scrape-value";
+import { inititalCacheOfEventDetails } from "./initial-cache-of-event-details";
 
 const msBetweenReloads = parseInt(process.env["MFOL_EVENT_CACHE_RELOAD_FREQ_MS"] as string || "5000", 10);
 
@@ -127,26 +128,7 @@ export async function loadMarchesByScrapingEveryTown() {
         console.log("exception", e);
       }
     }
-    const eventsById = new Map<string, MarchForOurLivesEvent>(
-      events.map( event => [event.id.toString(), event] as [string, MarchForOurLivesEvent])
-    );
-    const index = lunr(function () {
-      this.pipeline.remove(lunr.stemmer)
-      this.searchPipeline.remove(lunr.stemmer)
-      this.field('city_etc_no_postal')
-      this.field('zip')
-      this.field('venue')
-      this.field('state')
-     
-      events.forEach( event => this.add(event));
-    });
-    const cachedGeographicEventLookup = sphereKnn(events);
-    return {
-      index,
-      events,
-      eventsById,
-      cachedGeographicEventLookup,
-    };
+    return events;
   } catch (e) {
     //
     console.log("exception", e);
@@ -157,37 +139,69 @@ export async function loadMarchesByScrapingEveryTown() {
 export const delay = (msToWait: number) => 
   new Promise<void>( (resolve) => setTimeout(resolve, msToWait) );
 
-const eventsCache = cacheFactory(loadMarchesByScrapingEveryTown, msBetweenReloads);
+const eventsWithoutDetailsCache = cacheFactory(loadMarchesByScrapingEveryTown, msBetweenReloads);
 
-export async function loadEventsWithDetails() {
-    const { events } = await eventsCache();
-    const eventIdToDescription = await Promise.all(
+export async function loadEventDetails() {
+    const events = await eventsWithoutDetailsCache();
+    const pairs = await Promise.all(
       events.map( async (event, index) => {
-        await delay(100 * index); // Limit to 10 requests per second, so expect 100 seconds to load
+        await delay(500 * index); // Limit to 2 requests per second, so expect 400 seconds to load
         try {
           const actionKitPage = await axios.get(`https://event.marchforourlives.com/event/march-our-lives-events/${event.id.toString()}/signup/`);
           let body = actionKitPage.data as string;
-          const event_description = scrapeValue(body, `<p class="ak-event-description">`, `</p>`);
-          return {...event, event_description} as MarchForOurLivesEvent & {event_description: string};
+          const event_description = scrapeValue(body, `<p class="ak-event-description">`, `</p>`)        
+            .replace(/(&quot[\;])/g, "\\\"");;
+          return [event.id, event_description] as [number, string | undefined];
         } catch (e) {
           //
           console.log("exception", e);
-          return {...event, event_description: undefined};
+          return [event.id, undefined] as [number, string | undefined];
         }
       })
     );
-    return eventIdToDescription as (MarchForOurLivesEvent & {event_description: string})[];
+    const eventIdToDescription = new Map(pairs);
+    return eventIdToDescription;
 }
 
-const eventDetailsCache = cacheFactory(loadEventsWithDetails, msBetweenReloads * 5000);
+export const eventDetailsCache = cacheFactory(loadEventDetails, msBetweenReloads, inititalCacheOfEventDetails);
+
+export async function loadEventsWithDetails() {
+  const eventsWithoutDetails = (await eventsWithoutDetailsCache());
+  const eventDetails = await eventDetailsCache();
+  const events = eventsWithoutDetails.map( event => 
+    ({...event, event_description: eventDetails.get(event.id) }));
+
+  const eventsById = new Map<string, MarchForOurLivesEvent>(
+    events.map( event => [event.id.toString(), event] as [string, MarchForOurLivesEvent])
+  );
+  const index = lunr(function () {
+    this.pipeline.remove(lunr.stemmer)
+    this.searchPipeline.remove(lunr.stemmer)
+    this.field('city_etc_no_postal')
+    this.field('zip')
+    this.field('venue')
+    this.field('state')
+    
+    events.forEach( event => this.add(event));
+  });
+  const cachedGeographicEventLookup = sphereKnn(events);
+  return {
+    index,
+    events,
+    eventsById,
+    cachedGeographicEventLookup,
+  };
+}
+
+const eventsCache = cacheFactory(loadEventsWithDetails, msBetweenReloads);
 
 export async function getMarchForOurLivesEvents() {
-  const {events} = await eventsCache();
+  const events = await eventsWithoutDetailsCache();
   return events;
 }
 
 export async function getMarchForOurLivesEventsWithDetails() {
-  return await eventDetailsCache();
+  return await eventsCache();
 }
 
 
