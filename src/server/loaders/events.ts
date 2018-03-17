@@ -7,6 +7,8 @@ import {zipCodeToTimeZone} from "./zip-code-to-time-zone";
 import * as momenttz from "moment-timezone";
 import {cacheFactory} from "./cache-factory";
 import * as lunr from "lunr";
+import { scrapeValue } from "./scrape-value";
+import { inititalCacheOfEventDetails } from "./initial-cache-of-event-details";
 
 const msBetweenReloads = parseInt(process.env["MFOL_EVENT_CACHE_RELOAD_FREQ_MS"] as string || "5000", 10);
 
@@ -126,26 +128,7 @@ export async function loadMarchesByScrapingEveryTown() {
         console.log("exception", e);
       }
     }
-    const eventsById = new Map<string, MarchForOurLivesEvent>(
-      events.map( event => [event.id.toString(), event] as [string, MarchForOurLivesEvent])
-    );
-    const index = lunr(function () {
-      this.pipeline.remove(lunr.stemmer)
-      this.searchPipeline.remove(lunr.stemmer)
-      this.field('city_etc_no_postal')
-      this.field('zip')
-      this.field('venue')
-      this.field('state')
-     
-      events.forEach( event => this.add(event));
-    });
-    const cachedGeographicEventLookup = sphereKnn(events);
-    return {
-      index,
-      events,
-      eventsById,
-      cachedGeographicEventLookup,
-    };
+    return events;
   } catch (e) {
     //
     console.log("exception", e);
@@ -153,12 +136,77 @@ export async function loadMarchesByScrapingEveryTown() {
   }
 }
 
-const cache = cacheFactory(loadMarchesByScrapingEveryTown, msBetweenReloads);
+export const delay = (msToWait: number) => 
+  new Promise<void>( (resolve) => setTimeout(resolve, msToWait) );
+
+const eventsWithoutDetailsCache = cacheFactory(loadMarchesByScrapingEveryTown, msBetweenReloads);
+
+export async function loadEventDetails() {
+    const events = await eventsWithoutDetailsCache();
+    const pairs = await Promise.all(
+      events.map( async (event, index) => {
+         // Limit to 1 requests per second, so expect ~800 seconds (one second per event) to load
+         // That's why we have a default value for the events from March 17 to use until 
+         // first cache load completes.
+        await delay(1000 * index);
+        try {
+          const actionKitPage = await axios.get(`https://event.marchforourlives.com/event/march-our-lives-events/${event.id.toString()}/signup/`);
+          let body = actionKitPage.data as string;
+          const event_description = scrapeValue(body, `<p class="ak-event-description">`, `</p>`)        
+            .replace(/(&quot[\;])/g, "\\\"");;
+          return [event.id, event_description] as [number, string | undefined];
+        } catch (e) {
+          //
+          console.log("exception", e);
+          return [event.id, undefined] as [number, string | undefined];
+        }
+      })
+    );
+    const eventIdToDescription = new Map(pairs);
+    return eventIdToDescription;
+}
+
+export const eventDetailsCache = cacheFactory(loadEventDetails, msBetweenReloads, inititalCacheOfEventDetails);
+
+export async function loadEventsWithDetails() {
+  const eventsWithoutDetails = (await eventsWithoutDetailsCache());
+  const eventDetails = await eventDetailsCache();
+  const events = eventsWithoutDetails.map( event => 
+    ({...event, event_description: eventDetails.get(event.id) }));
+
+  const eventsById = new Map<string, MarchForOurLivesEvent>(
+    events.map( event => [event.id.toString(), event] as [string, MarchForOurLivesEvent])
+  );
+  const index = lunr(function () {
+    this.pipeline.remove(lunr.stemmer)
+    this.searchPipeline.remove(lunr.stemmer)
+    this.field('city_etc_no_postal')
+    this.field('zip')
+    this.field('venue')
+    this.field('state')
+    
+    events.forEach( event => this.add(event));
+  });
+  const cachedGeographicEventLookup = sphereKnn(events);
+  return {
+    index,
+    events,
+    eventsById,
+    cachedGeographicEventLookup,
+  };
+}
+
+const eventsCache = cacheFactory(loadEventsWithDetails, msBetweenReloads);
 
 export async function getMarchForOurLivesEvents() {
-  const {events} = await cache();
+  const events = await eventsWithoutDetailsCache();
   return events;
 }
+
+export async function getMarchForOurLivesEventsWithDetails() {
+  return await eventsCache();
+}
+
 
 export async function getNearestMarches(
   params: GetNearestMarchesRequestParams) {
@@ -180,7 +228,7 @@ export async function getNearestMarches(
     latitude = parseFloat(params.latitude as string);
     longitude = parseFloat(params.longitude as string);
   }
-  const {cachedGeographicEventLookup} = await cache();
+  const {cachedGeographicEventLookup} = await eventsCache();
   return cachedGeographicEventLookup(latitude, longitude, maxResults, maxDistanceInMeters);
 };
 
@@ -192,7 +240,7 @@ export async function searchMarches(
   if (trimQuery.match(/\d{5}/) != null) {
     return await getNearestMarches({zipCode: trimQuery, maxResults});
   }
-  const {eventsById, index} = await cache();
+  const {eventsById, index} = await eventsCache();
   const results = index.search(query + "*")
     .slice(0, maxResults)
     .map( result => {

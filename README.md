@@ -15,7 +15,11 @@ For full details, see `src/static/api.ts`
 
 `/api/events`
 
-     returns an array of all `MarchForOurLivesEvent` objects in the database.
+     returns an array of all `MarchForOurLivesEvent` objects in the database WITHOUT the event_description field. (~65k to download)
+
+`/api/detailed-events`
+
+     returns an array of all `MarchForOurLivesEvent` objects in the database WITH the event_description field. (~210kb to download)
 
 `/api/nearby`
 
@@ -95,6 +99,8 @@ interface MarchForOurLivesEvent {
   city_etc: string;
   venue: string;
   state: string;
+  // Provided on all calls except /events
+  event_description: string; // The long description of the event
 };
 ```
 

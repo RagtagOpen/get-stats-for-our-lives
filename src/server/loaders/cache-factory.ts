@@ -1,14 +1,15 @@
 
 export function cacheFactory<T>(
   cacheLoadFunction: () => Promise<T>,
-  msBetweenReloads = 5000
+  msBetweenReloads = 10000,
+  initialValue: T | undefined = undefined,
 ): () => Promise<T> {  
   // Set this to true when we're loading the cache so that we don't
   // issue multiple loads at once.
   let loadPromise: Promise<T> | undefined = undefined;
   // Track how fresh the data in the cache is.
-  let currentAsOf: Date | undefined = undefined;
-  let cache: T | undefined = undefined;
+  let currentAsOf: number = 0;
+  let cache: T | undefined = initialValue;
 
   const load = async () => {
     if (loadPromise) {
@@ -23,7 +24,7 @@ export function cacheFactory<T>(
         cache = await loadPromise;
 
         // Update our recrod of how fresh the data is
-        currentAsOf = new Date();
+        currentAsOf = Date.now();
       } finally {
         // Always set reloadUnderway to false after the load
         // is complete, even if it failed.
@@ -32,13 +33,14 @@ export function cacheFactory<T>(
     }
     return cache;
   };
+
   const ensureCacheIsLoaded = async (): Promise<T> => {
-    if (typeof(currentAsOf) === "undefined" || !cache) {
+    if (typeof(cache) === "undefined") {
       // There is no data in the cache, and so we can't return a result
       // until the cache is loaded.  We must await the result of loadCache.
       return await load();
     } else if (!loadPromise &&
-               (currentAsOf.getTime() + msBetweenReloads < Date.now())
+               (currentAsOf + msBetweenReloads < Date.now())
     ) {
       // There is data in the cache, we're not currently loading any fresh data,
       // and it's been there a while since we last updated the cache.
