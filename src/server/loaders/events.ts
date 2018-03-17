@@ -145,7 +145,10 @@ export async function loadEventDetails() {
     const events = await eventsWithoutDetailsCache();
     const pairs = await Promise.all(
       events.map( async (event, index) => {
-        await delay(500 * index); // Limit to 2 requests per second, so expect 400 seconds to load
+         // Limit to 1 requests per second, so expect ~800 seconds (one second per event) to load
+         // That's why we have a default value for the events from March 17 to use until 
+         // first cache load completes.
+        await delay(1000 * index);
         try {
           const actionKitPage = await axios.get(`https://event.marchforourlives.com/event/march-our-lives-events/${event.id.toString()}/signup/`);
           let body = actionKitPage.data as string;
